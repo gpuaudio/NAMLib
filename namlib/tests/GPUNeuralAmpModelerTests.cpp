@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "AudioFile.h"
+#include <AudioFile/AudioFile.h>
 #include "TestCommon.h"
 
 #include <GPUCreate.h>

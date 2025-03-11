@@ -8,8 +8,7 @@ cmake_policy(SET CMP0135 NEW)
 # ENGINE API
 FetchContent_Declare(
     engine_api
-    URL https://packages.braingines.com/artifactory/partners/common/engine_api_unstable/engine_api-v2.2.0_62.zip
-    HTTP_HEADER "Authorization: Bearer $ENV{GPUAUDIO_ART_KEY}"
+    URL https://github.com/gpuaudio/platform_headers/releases/download/v0.0.1/engine_api-v2.2.0_63.zip
     SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/engine_api
 )
 FetchContent_MakeAvailable(engine_api)
@@ -17,11 +16,18 @@ FetchContent_MakeAvailable(engine_api)
 # GPU AUDIO CLIENT
 FetchContent_Declare(
     gpu_audio_client
-    URL https://packages.braingines.com/artifactory/partners/common/gpu_audio_client_unstable/gpu_audio_client-v0.1.1_12.zip
-    HTTP_HEADER "Authorization: Bearer $ENV{GPUAUDIO_ART_KEY}"
+    URL https://github.com/gpuaudio/platform_headers/releases/download/v0.0.1/gpu_audio_client-v0.1.1_12.zip
     SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/gpu_audio_client
 )
 FetchContent_MakeAvailable(gpu_audio_client)
+
+# AudioFile
+FetchContent_Declare(
+    AudioFile
+    URL https://github.com/adamstark/AudioFile/archive/refs/tags/1.1.0.zip
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/AudioFile
+)
+FetchContent_MakeAvailable(AudioFile)
 
 # JSON
 FetchContent_Declare(
@@ -70,6 +76,18 @@ set(nam_headers
     include/NAM/wavenet.h
 )
 
+# Compile definitions
+if (WIN32)
+    set(win_common_private_compile_definitions
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
+    )
+endif ()
+
+source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${nam_src} ${nam_headers})
+
+##### namlib
+
 # Source files
 target_sources(${component_name} PRIVATE
     ${target_src}
@@ -77,7 +95,6 @@ target_sources(${component_name} PRIVATE
     ${target_headers}
     ${nam_headers}
 )
-source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${nam_src} ${nam_headers})
 
 # Include directories
 target_include_directories(${component_name} PUBLIC
@@ -92,20 +109,48 @@ if (DEFINED FETCH_LOCATION)
     )
 endif ()
 
-# Compile definitions
-if (WIN32)
-    set(win_common_private_compile_definitions
-        WIN32_LEAN_AND_MEAN
-        NOMINMAX
-    )
-endif ()
-
 target_compile_definitions(${component_name} PRIVATE
     ${win_common_private_compile_definitions}
 )
 
 # Link libraries
 target_link_libraries(${component_name} PUBLIC nlohmann_json::nlohmann_json)
+
+##### namlib MT on Windows
+
+if (CMAKE_GENERATOR MATCHES "Visual Studio")
+    add_library(${component_name}_mt STATIC)
+    # Source files
+    target_sources(${component_name}_mt PRIVATE
+        ${target_src}
+        ${nam_src}
+        ${target_headers}
+        ${nam_headers}
+    )
+
+    # Include directories
+    target_include_directories(${component_name}_mt PUBLIC
+        ../include
+        include
+    )
+
+    # Header-only dependencies if they were fetched from the top-level project
+    if (DEFINED FETCH_LOCATION)
+        target_include_directories(${component_name}_mt PUBLIC
+            ${FETCH_LOCATION}/include
+        )
+    endif ()
+
+    target_compile_definitions(${component_name}_mt PRIVATE
+        ${win_common_private_compile_definitions}
+    )
+
+    # Link libraries
+    target_link_libraries(${component_name}_mt PUBLIC nlohmann_json::nlohmann_json)
+    set_target_properties(${component_name}_mt PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif ()
+
+#####
 
 if (NOT DEFINED NAMLIB_DISABLE_TESTS)
     # Unit tests
@@ -115,7 +160,6 @@ if (NOT DEFINED NAMLIB_DISABLE_TESTS)
 
     # Source files
     target_sources(${tests_name} PRIVATE
-        tests/AudioFile.h
         tests/TestCommon.h
         tests/GPUNeuralAmpModelerTests.cpp
     )
@@ -161,7 +205,6 @@ add_executable(nam_process_file)
 
 # Source files
 target_sources(nam_process_file PRIVATE
-    tests/AudioFile.h
     tests/nam_process_file.cpp
 )
 
